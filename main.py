@@ -12,7 +12,6 @@ WIDTH = 840
 ACC = 0.5
 FRIC = -0.12
 FPS = 60
-DEATHS = 0
 
 FramePerSec = pygame.time.Clock()
 
@@ -28,6 +27,7 @@ theme.play(loops=-1)
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
+        self.deaths = 0
         self.surf = pygame.image.load("sprites/wait_right2.png")
         self.surf = pygame.transform.scale(self.surf, (72, 64))
         self.rect = self.surf.get_rect()
@@ -37,46 +37,32 @@ class Player(pygame.sprite.Sprite):
         self.jumping = False
         self.score = 1
         self.direction = "right"
-        self._layer = 3
+        self.layer = 3
 
     def move(self):
         self.acc = vec(0, 0.5)
         pressed_keys = pygame.key.get_pressed()
+        size = 72 * (1 + (self.deaths * 0.2)), 64 * (1 + (self.deaths * 0.2))
+        horizontal_magnitude = min(1, ACC + (self.deaths * 0.2))
         if pressed_keys[K_LEFT]:
             self.surf = pygame.image.load("sprites/wait1.png")
-            self.surf = pygame.transform.scale(self.surf, (72 * (1 + (DEATHS * 0.2)), 64 * (1 + (DEATHS * 0.2))))
-            self.rect = self.surf.get_rect()
-            if -ACC - (DEATHS * 0.1) >= -1:
-                self.acc.x = -ACC - (DEATHS * 0.1)
-            else:
-                self.acc.x = -1
+            self.acc.x = -horizontal_magnitude
             self.direction = "left"
-
         elif pressed_keys[K_RIGHT]:
             self.surf = pygame.image.load("sprites/wait_right1.png")
-            self.surf = pygame.transform.scale(self.surf, (72 * (1 + (DEATHS * 0.2)), 64 * (1 + (DEATHS * 0.2))))
-            self.rect = self.surf.get_rect()
-            if ACC + (DEATHS * 0.2) <= 1:
-                self.acc.x = ACC + (DEATHS * 0.2)
-            else:
-                self.acc.x = 1
+            self.acc.x = horizontal_magnitude
             self.direction = "right"
 
         elif pressed_keys[K_SPACE]:
             self.surf = pygame.image.load("sprites/jump3.png")
-            self.surf = pygame.transform.scale(self.surf, (72 * (1 + (DEATHS * 0.2)), 64 * (1 + (DEATHS * 0.2))))
-            self.rect = self.surf.get_rect()
-
         else:
             if self.direction == "right":
                 self.surf = pygame.image.load("sprites/wait_right2.png")
-                self.surf = pygame.transform.scale(self.surf, (72 * (1 + (DEATHS * 0.2)), 64 * (1 + (DEATHS * 0.2))))
-                self.rect = self.surf.get_rect()
             else:
                 self.surf = pygame.image.load("sprites/wait2.png")
-                self.surf = pygame.transform.scale(self.surf, (72 * (1 + (DEATHS * 0.2)), 64 * (1 + (DEATHS * 0.2))))
-                self.rect = self.surf.get_rect()
 
+        self.surf = pygame.transform.scale(self.surf, size)
+        self.rect = self.surf.get_rect()
         self.acc.x += self.vel.x * FRIC
         self.vel += self.acc
         self.pos += self.vel + 0.5 * self.acc
@@ -92,10 +78,8 @@ class Player(pygame.sprite.Sprite):
         hits = pygame.sprite.spritecollideany(self, platforms)
         if hits and not self.jumping:
             self.jumping = True
-            if -15 - (DEATHS * 2) >= -25:
-                self.vel.y = -15 - (DEATHS * 2)
-            else:
-                self.vel.y = -25
+            jump_mag = min(15 + (self.deaths * 2), 25)
+            self.vel.y = -jump_mag
 
     def cancel_jump(self):
         if self.jumping:
@@ -130,7 +114,7 @@ class platform(pygame.sprite.Sprite):
 
         self.point = True
         self.moving = True
-        self._layer = 1
+        self.layer = 1
 
     def move(self):
         if self.moving == True:
@@ -146,7 +130,7 @@ class checkpoint(pygame.sprite.Sprite):
         self.surf = pygame.image.load("sprites/sapling1.png")
         self.surf = pygame.transform.scale(self.surf, (100, 100))
         self.rect = self.surf.get_rect(center=(WIDTH / 8, HEIGHT - 40))
-        self._layer = 2
+        self.layer = 2
 
     def move(self):
         self.moving = False
@@ -253,7 +237,7 @@ while True:
         player_death.play()
         pygame.time.wait(5000)
         P1.pos = vec((108, 400))
-        DEATHS += 1
+        P1.deaths += 1
         P1.vel = vec(0, 0)
         #for entity in all_sprites:
 
@@ -315,11 +299,11 @@ while True:
     lvl_counter = f.render("Level " + str(P1.score), True, (0, 0, 255))
     displaysurface.blit(lvl_counter, (WIDTH / 2, 10))
 
-    death_counter = f.render("Tries: " + str(DEATHS), True, (0, 0, 255))
+    death_counter = f.render("Tries: " + str(P1.deaths), True, (0, 0, 255))
     displaysurface.blit(death_counter, (WIDTH / 2, 30))
 
-    for entity in all_sprites:
-        displaysurface.blit(entity.surf, entity.rect)
+    for entity in sorted(all_sprites, key=lambda sprite: sprite.layer):
+        displaysurface.blit(entity.surf, entity.rect.move(-P1.pos.x + 100, 0))
         entity.move()
 
     pygame.display.update()
